@@ -75,7 +75,10 @@ class KNearestNeighbor(object):
                 # training point, and store the result in dists[i, j]. You should   #
                 # not use a loop over dimension, nor use np.linalg.norm().          #
                 #####################################################################
-                pass
+                #pass
+                xi = X[i]
+                xj = self.X_train[j]
+                dists[i,j] = np.sqrt(np.sum((xi - xj) ** 2))
         return dists
 
     def compute_distances_one_loop(self, X):
@@ -95,7 +98,11 @@ class KNearestNeighbor(object):
             # points, and store the result in dists[i, :].                        #
             # Do not use np.linalg.norm().                                        #
             #######################################################################
-            pass
+            #pass
+            xi = X[i]
+            dists[i,:] = np.sqrt(np.sum((xi-self.X_train)**2,axis=1))
+            # np.sum(..., axis=1) 对每个训练样本（每一行）求和。
+            
         return dists
 
     def compute_distances_no_loops(self, X):
@@ -121,6 +128,19 @@ class KNearestNeighbor(object):
         # HINT: Try to formulate the l2 distance using matrix multiplication    #
         #       and two broadcast sums.                                         #
         #########################################################################
+
+        #平方展开后运算 (x-y)**2 = x**2 + y**2 - 2*x*y
+        # (num_test, 1)
+        X_square = np.sum(X**2, axis=1, keepdims=True)
+        # (1, num_train)
+        X_train_square = np.sum(self.X_train**2, axis=1, keepdims=True).T
+        # (num_test, num_train)
+        # @ 内积
+        cross_term = X @ self.X_train.T
+        
+        dists = np.sqrt(X_square + X_train_square - 2 * cross_term)
+        # X_square 自动复制成 (num_test, num_train)，每一列都一样。
+        # X_train_square 自动复制成 (num_test, num_train)，每一行都一样。
 
         return dists
 
@@ -151,6 +171,13 @@ class KNearestNeighbor(object):
             # Hint: Look up the function numpy.argsort.                             #
             #########################################################################
 
+            # for j in range(k):
+            #     closest_y.append(self.y_train[np.argsort(dists[i,])[j]])
+            # 这样可以是可以，但是效率很低，应该采取更python的做法
+
+            closest_idxs = np.argsort(dists[i])[:k]  
+            closest_y = self.y_train[closest_idxs] 
+
 
             #########################################################################
             # TODO:                                                                 #
@@ -160,5 +187,10 @@ class KNearestNeighbor(object):
             # label.                                                                #
             #########################################################################
 
+            counts = np.bincount(closest_y)
+            # 统计每个非负整数值在数组中出现的次数，返回一个一维数组，下标是标签，值是出现次数。
+            y_pred[i] = np.argmax(counts)
+            # 返回 counts 数组中最大值的下标，也就是出现次数最多的标签
+            # 如果有多个标签并列最多，np.argmax 会返回最小的下标（即标签编号较小的那个）。
 
         return y_pred
