@@ -55,6 +55,12 @@ class TwoLayerNet(object):
         # weights and biases using the keys 'W2' and 'b2'.                         #
         ############################################################################
 
+        self.params['W1'] = np.random.randn(input_dim, hidden_dim) * weight_scale
+        self.params['b1'] = np.zeros(hidden_dim)
+        self.params['W2'] = np.random.randn(hidden_dim, num_classes) * weight_scale
+        self.params['b2'] = np.zeros(num_classes)
+
+
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -83,6 +89,15 @@ class TwoLayerNet(object):
         # TODO: Implement the forward pass for the two-layer net, computing the    #
         # class scores for X and storing them in the scores variable.              #
         ############################################################################
+        W1, b1 = self.params['W1'], self.params['b1']
+        W2, b2 = self.params['W2'], self.params['b2']
+
+        a1, fc_cache1 = affine_forward(X, W1, b1)
+        
+        h1, relu_cache1 = relu_forward(a1)
+
+        scores, fc_cache2 = affine_forward(h1, W2, b2)
+
 
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -103,6 +118,26 @@ class TwoLayerNet(object):
         # automated tests, make sure that your L2 regularization includes a factor #
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
+
+        loss, dscores = softmax_loss(scores, y)
+        loss += 0.5 * self.reg * (np.sum(W1 * W1) + np.sum(W2 * W2))
+
+        dh1, dW2, db2 = affine_backward(dscores, fc_cache2)
+        dW2 += self.reg * W2
+
+        da1 = relu_backward(dh1, relu_cache1)
+
+        dX, dW1, db1 = affine_backward(da1, fc_cache1)
+        dW1 += self.reg * W1
+
+        grads = {
+            'W1': dW1,
+            'b1': db1,
+            'W2': dW2,
+            'b2': db2
+        }
+
+
 
         ############################################################################
         #                             END OF YOUR CODE                             #
