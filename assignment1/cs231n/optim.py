@@ -68,6 +68,13 @@ def sgd_momentum(w, dw, config=None):
     # the next_w variable. You should also use and update the velocity v.     #
     ###########################################################################
 
+    mu = config["momentum"]
+    lr = config["learning_rate"]
+
+    v = mu * v - lr * dw      # 先更新速度
+    # 先往之前的方向走一点，再加上当前梯度的影响
+    next_w = w + v            # 再用速度更新参数
+
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -101,6 +108,18 @@ def rmsprop(w, dw, config=None):
     # in the next_w variable. Don't forget to update cache value stored in    #
     # config['cache'].                                                        #
     ###########################################################################
+    
+    lr = config["learning_rate"]
+    decay_rate = config["decay_rate"]
+    eps = config["epsilon"]
+    cache = config["cache"]
+
+    # 1. 更新cache（梯度平方的滑动平均）
+    cache = decay_rate * cache + (1 - decay_rate) * (dw ** 2)
+    # 2. 用cache自适应调整每个参数的学习率
+    next_w = w - lr * dw / (np.sqrt(cache) + eps)
+    # 3. 保存最新的cache
+    config["cache"] = cache
 
     ###########################################################################
     #                             END OF YOUR CODE                            #
@@ -142,6 +161,34 @@ def adam(w, dw, config=None):
     # NOTE: In order to match the reference output, please modify t _before_  #
     # using it in any calculations.                                           #
     ###########################################################################
+    
+    # 1. 更新迭代次数
+    config["t"] += 1
+    t = config["t"]
+
+    # 2. 取出参数
+    lr = config["learning_rate"]
+    beta1 = config["beta1"]
+    beta2 = config["beta2"]
+    eps = config["epsilon"]
+    m = config["m"]
+    v = config["v"]
+
+    # 3. 更新一阶矩（梯度的滑动平均）
+    m = beta1 * m + (1 - beta1) * dw
+    # 4. 更新二阶矩（梯度平方的滑动平均）
+    v = beta2 * v + (1 - beta2) * (dw ** 2)
+
+    # 5. 计算偏差修正
+    m_hat = m / (1 - beta1 ** t)
+    v_hat = v / (1 - beta2 ** t)
+
+    # 6. 参数更新
+    next_w = w - lr * m_hat / (np.sqrt(v_hat) + eps)
+
+    # 7. 保存新m和v
+    config["m"] = m
+    config["v"] = v
 
     ###########################################################################
     #                             END OF YOUR CODE                            #
