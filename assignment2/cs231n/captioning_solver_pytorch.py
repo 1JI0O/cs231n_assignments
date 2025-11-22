@@ -112,6 +112,7 @@ class CaptioningSolverPytorch(object):
         loss.backward()
         self.optim.step()
         self.loss_history.append(loss.detach().numpy())
+        # self.loss_history.append(loss.item())
 
     def train(self):
         """

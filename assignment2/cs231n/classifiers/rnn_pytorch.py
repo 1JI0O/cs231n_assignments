@@ -138,7 +138,23 @@ class CaptioningRNN:
         #                                                                          #
         # You also don't have to implement the backward pass.                      #
         ############################################################################
-        # 
+        # (1) Affine transform: features -> initial hidden state (N, H)
+        h0 = features @ W_proj + b_proj  # (N, H)
+
+        # (2) Word embedding: captions_in (N, T) -> (N, T, W)
+        x_embed = word_embedding_forward(captions_in, W_embed)  # (N, T, W)
+
+        # (3) RNN forward: (N, T, W) + h0 -> (N, T, H)
+        if self.cell_type == 'rnn':
+            h = rnn_forward(x_embed, h0, Wx, Wh, b)  # (N, T, H)
+        else:
+            raise NotImplementedError('Only rnn cell_type is implemented for now.')
+
+        # (4) Temporal affine: (N, T, H) -> (N, T, V)
+        scores = temporal_affine_forward(h, W_vocab, b_vocab)  # (N, T, V)
+
+        # (5) Temporal softmax loss
+        loss = temporal_softmax_loss(scores, captions_out, mask)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -202,7 +218,25 @@ class CaptioningRNN:
         # NOTE: we are still working over minibatches in this function. Also if   #
         # you are using an LSTM, initialize the first cell state to zeros.        #
         ###########################################################################
-        # 
+        # (1) 初始化隐藏状态
+        h = features @ W_proj + b_proj  # (N, H)
+        # (2) 初始化输入词为 <START>
+        prev_word = torch.full((N,), self._start, dtype=torch.long, device=features.device)
+
+        for t in range(max_length):
+            # (3) 词嵌入
+            x = W_embed[prev_word]  # (N, W)
+            # (4) RNN 单步
+            h = rnn_step_forward(x, h, Wx, Wh, b)  # (N, H)
+            # (5) 计算词表分数
+            scores = h @ W_vocab + b_vocab  # (N, V)
+            # (6) 选概率最大的词
+            next_word = scores.argmax(dim=1)  # (N,)
+            # (7) 保存到 captions
+            captions[:, t] = next_word
+            # (8) 下一个时间步的输入
+            prev_word = next_word
+          
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
