@@ -113,8 +113,8 @@ class MultiHeadAttention(nn.Module):
         self.attn_drop = nn.Dropout(dropout)
 
         self.n_head = num_heads
-        self.emd_dim = embed_dim
-        self.head_dim = self.emd_dim // self.n_head
+        self.embed_dim = embed_dim
+        self.head_dim = self.embed_dim // self.n_head
 
     def forward(self, query, key, value, attn_mask=None):
         """
@@ -155,6 +155,36 @@ class MultiHeadAttention(nn.Module):
         #     prevent a value from influencing output. Specifically, the PyTorch   #
         #     function masked_fill may come in handy.                              #
         ############################################################################
+        # 线性映射得到多头的查询、键、值张量                                      #
+        ############################################################################
+        Q = self.query(query)  # (N, S, E)
+        K = self.key(key)      # (N, T, E)
+        V = self.value(value)  # (N, T, E)
+
+        # 重新排列形状以显式区分注意力头                                        #
+        Q = Q.view(N, S, self.n_head, self.head_dim).transpose(1, 2).contiguous()
+        K = K.view(N, T, self.n_head, self.head_dim).transpose(1, 2).contiguous()
+        V = V.view(N, T, self.n_head, self.head_dim).transpose(1, 2).contiguous()
+
+        # 按照缩放点积注意力计算得分矩阵                                         #
+        scale = math.sqrt(self.head_dim)
+        attn_scores = torch.matmul(Q, K.transpose(-2, -1)) / scale  # (N, H, S, T)
+
+        # 若提供掩码则屏蔽被禁止的位置                                           #
+        if attn_mask is not None:
+            mask = attn_mask.to(torch.bool).unsqueeze(0).unsqueeze(0)  # (1, 1, S, T)
+            attn_scores = attn_scores.masked_fill(~mask, float('-inf'))
+
+        # 归一化得到注意力权重并应用丢弃                                         #
+        attn_weights = F.softmax(attn_scores, dim=-1)
+        attn_weights = self.attn_drop(attn_weights)
+
+        # 根据注意力权重加权求和值向量                                           #
+        attn_output = torch.matmul(attn_weights, V)  # (N, H, S, E/H)
+
+        # 合并所有头并通过输出线性层                                            #
+        attn_output = attn_output.transpose(1, 2).contiguous().view(N, S, E)
+        output = self.proj(attn_output)
 
         ############################################################################
         #                             END OF YOUR CODE                             #
